@@ -21,8 +21,6 @@ export class ProfileService {
   }
 
   findOne(id: number, details: string) {
-    console.log(id, details);
-
     const user = users.find((user) => user.id === id);
 
     if (details === 'details') {
