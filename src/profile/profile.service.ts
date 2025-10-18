@@ -1,6 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Profile } from './entities/profile.entity';
+import { Repository } from 'typeorm';
+import { TCreateProfileResponse, TSavedProfile } from './types/profile.types';
 
 const users = [
   { id: 1, name: 'Janek', email: 'janek@gmail.com' },
@@ -11,8 +15,25 @@ const users = [
 
 @Injectable()
 export class ProfileService {
-  create(createProfileDto: CreateProfileDto) {
-    return 'This action adds a new profile';
+  constructor(@InjectRepository(Profile) private profileRepository: Repository<Profile>) {}
+
+  async create(createProfileDto: CreateProfileDto): TCreateProfileResponse {
+    const existst = await this.profileRepository.findOne({
+      where: { email: createProfileDto.email },
+    });
+
+    if (existst) {
+      throw new ConflictException('Email already exists');
+    }
+
+    const profile = this.profileRepository.create(createProfileDto);
+
+    console.log('createProfileDto: ', createProfileDto, '\nprofile: ', profile);
+
+    const savedProfile = await this.profileRepository.save(profile);
+    const { password, ...profileWithoutPassword } = savedProfile;
+
+    return profileWithoutPassword;
   }
 
   findAll() {
