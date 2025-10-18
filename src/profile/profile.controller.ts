@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ObjectId } from 'typeorm';
 
 @Controller('profile')
 export class ProfileController {
@@ -9,8 +10,6 @@ export class ProfileController {
 
   @Post()
   create(@Body() createProfileDto: CreateProfileDto) {
-    console.log('createProfileDto: ', createProfileDto);
-
     return this.profileService.create(createProfileDto);
   }
 
@@ -19,9 +18,10 @@ export class ProfileController {
     return this.profileService.findAll();
   }
 
-  @Get(':id{/:details}')
-  findOne(@Param('id') id: string, @Param('details') details: string) {
-    return this.profileService.findOne(+id, details);
+  @Get(':id')
+  findOne(@Param('id') id: string, @Query('include') include?: string) {
+    const includeDetails = include === 'details';
+    return this.profileService.findOne(id, includeDetails);
   }
 
   @Patch(':id')

@@ -19,7 +19,10 @@ export class CreateProfileDto {
       minUppercase: 1,
       minLowercase: 1,
     },
-    { message: 'password is not strong enough' },
+    {
+      message:
+        'password is not strong enough: minLength: 8, minNumbers: 1, minSymbols: 1, minUppercase: 1, minLowercase: 1',
+    },
   )
   password: string;
 }

@@ -1,21 +1,15 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Profile } from './entities/profile.entity';
-import { Repository } from 'typeorm';
-import { TCreateProfileResponse, TSavedProfile } from './types/profile.types';
-
-const users = [
-  { id: 1, name: 'Janek', email: 'janek@gmail.com' },
-  { id: 2, name: 'Adam', email: 'adam@gmail.com' },
-  { id: 3, name: 'Tomasz', email: 'tomek@my.com' },
-  { id: 4, name: 'Dawid', email: 'dawid@email.com' },
-];
+import { MongoRepository } from 'typeorm';
+import { TCreateProfileResponse, TCreatedProfile, TFindAllResponse } from './types/profile.types';
+import { ObjectId } from 'mongodb';
 
 @Injectable()
 export class ProfileService {
-  constructor(@InjectRepository(Profile) private profileRepository: Repository<Profile>) {}
+  constructor(@InjectRepository(Profile) private profileRepository: MongoRepository<Profile>) {}
 
   async create(createProfileDto: CreateProfileDto): TCreateProfileResponse {
     const existst = await this.profileRepository.findOne({
@@ -28,35 +22,34 @@ export class ProfileService {
 
     const profile = this.profileRepository.create(createProfileDto);
 
-    console.log('createProfileDto: ', createProfileDto, '\nprofile: ', profile);
-
     const savedProfile = await this.profileRepository.save(profile);
     const { password, ...profileWithoutPassword } = savedProfile;
 
     return profileWithoutPassword;
   }
 
-  findAll() {
-    return `This action returns all profile: \n
-    ${JSON.stringify(users, null, 2)}`;
+  async findAll(): TFindAllResponse {
+    const profiles = await this.profileRepository.find();
+    return profiles.map(({ comparePassword, hashPassword, password, ...restProfileProps }) => ({
+      ...restProfileProps,
+    }));
   }
 
-  findOne(id: number, details: string) {
-    const user = users.find((user) => user.id === id);
+  async findOne(id: string, include: boolean) {
+    const profile = await this.profileRepository.findOne({
+      where: { _id: new ObjectId(id) },
+    });
 
-    if (details === 'details') {
-      return user;
-    }
+    if (!profile) throw new NotFoundException('Profile not found');
 
-    return user?.name;
-  }
+    if (!include)
+      return {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+      };
 
-  findOneWithDetails(id: number, mode: string) {
-    console.log('yooo, co se deje', id, mode);
-
-    if (mode === 'details') {
-      return users.find((user) => user.id === id);
-    }
+    return profile;
   }
 
   update(id: number, updateProfileDto: UpdateProfileDto) {
