@@ -6,7 +6,6 @@ import { Profile } from './entities/profile.entity';
 import { MongoRepository } from 'typeorm';
 import {
   TCreateProfileResponse,
-  TCreatedProfile,
   TDeleteResponse,
   TFindAllResponse,
   TFindOneResponse,
@@ -43,11 +42,7 @@ export class ProfileService {
   }
 
   async findOne(id: string, include: boolean): TFindOneResponse {
-    const profile = await this.profileRepository.findOne({
-      where: { _id: new ObjectId(id) },
-    });
-
-    if (!profile) throw new NotFoundException('Profile not found');
+    const profile = await this.findProfileById(id);
 
     if (!include)
       return {
@@ -60,11 +55,7 @@ export class ProfileService {
   }
 
   async update(id: string, updateProfileDto: UpdateProfileDto): TUpdateResponse {
-    const profile = await this.profileRepository.findOne({
-      where: { _id: new ObjectId(id) },
-    });
-
-    if (!profile) throw new NotFoundException('Profile not found');
+    const profile = await this.findProfileById(id);
 
     if (updateProfileDto.email && updateProfileDto.email !== profile.email) {
       const existingProfile = await this.profileRepository.findOne({
@@ -89,14 +80,26 @@ export class ProfileService {
   }
 
   async remove(id: string): TDeleteResponse {
+    await this.findProfileById(id);
+
+    const deletedProfile = await this.profileRepository.delete(id);
+
+    return deletedProfile;
+  }
+
+  private async findProfileById(id: string): Promise<Profile> {
+    if (!ObjectId.isValid(id)) {
+      throw new NotFoundException('ID is not valid');
+    }
+
     const profile = await this.profileRepository.findOne({
       where: { _id: new ObjectId(id) },
     });
 
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) {
+      throw new NotFoundException('Profile not found');
+    }
 
-    const deletedProfile = await this.profileRepository.delete(profile.id);
-
-    return deletedProfile;
+    return profile;
   }
 }

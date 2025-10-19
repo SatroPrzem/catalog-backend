@@ -13,7 +13,6 @@ import {
 import { ProfileService } from './profile.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ObjectId } from 'typeorm';
 
 @Controller('profile')
 export class ProfileController {
