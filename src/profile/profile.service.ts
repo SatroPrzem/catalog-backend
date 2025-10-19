@@ -4,7 +4,14 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Profile } from './entities/profile.entity';
 import { MongoRepository } from 'typeorm';
-import { TCreateProfileResponse, TCreatedProfile, TFindAllResponse } from './types/profile.types';
+import {
+  TCreateProfileResponse,
+  TCreatedProfile,
+  TDeleteResponse,
+  TFindAllResponse,
+  TFindOneResponse,
+  TUpdateResponse,
+} from './types/profile.types';
 import { ObjectId } from 'mongodb';
 
 @Injectable()
@@ -35,7 +42,7 @@ export class ProfileService {
     }));
   }
 
-  async findOne(id: string, include: boolean) {
+  async findOne(id: string, include: boolean): TFindOneResponse {
     const profile = await this.profileRepository.findOne({
       where: { _id: new ObjectId(id) },
     });
@@ -52,11 +59,44 @@ export class ProfileService {
     return profile;
   }
 
-  update(id: number, updateProfileDto: UpdateProfileDto) {
-    return `This action updates a #${id} profile`;
+  async update(id: string, updateProfileDto: UpdateProfileDto): TUpdateResponse {
+    const profile = await this.profileRepository.findOne({
+      where: { _id: new ObjectId(id) },
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    if (updateProfileDto.email && updateProfileDto.email !== profile.email) {
+      const existingProfile = await this.profileRepository.findOne({
+        where: { email: updateProfileDto.email },
+      });
+
+      if (existingProfile) {
+        throw new ConflictException('This email is already exists');
+      }
+    }
+
+    const updatedProfile = {
+      ...profile,
+      ...updateProfileDto,
+    };
+
+    const savedProfile = await this.profileRepository.save(updatedProfile);
+
+    const { password, ...profileWithoutPassword } = savedProfile;
+
+    return profileWithoutPassword;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} profile`;
+  async remove(id: string): TDeleteResponse {
+    const profile = await this.profileRepository.findOne({
+      where: { _id: new ObjectId(id) },
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const deletedProfile = await this.profileRepository.delete(profile.id);
+
+    return deletedProfile;
   }
 }

@@ -1,4 +1,4 @@
-import { ObjectId } from 'typeorm';
+import { DeleteResult, ObjectId } from 'typeorm';
 import { Profile } from '../entities/profile.entity';
 
 export interface IBaseProfile {
@@ -14,3 +14,9 @@ export type TCreateProfileResponse = Promise<TCreatedProfile>;
 export type TFindAllResponse = Promise<Array<TCreatedProfile>>;
 
 export type TFindOneResponse = Promise<Profile | IBaseProfile>;
+
+export type TUpdateResponse = Promise<
+  Omit<Profile, 'password' | 'hashPassword' | 'comparePassword'>
+>;
+
+export type TDeleteResponse = Promise<DeleteResult>;
