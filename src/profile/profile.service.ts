@@ -1,48 +1,105 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-
-const users = [
-  { id: 1, name: 'Janek', email: 'janek@gmail.com' },
-  { id: 2, name: 'Adam', email: 'adam@gmail.com' },
-  { id: 3, name: 'Tomasz', email: 'tomek@my.com' },
-  { id: 4, name: 'Dawid', email: 'dawid@email.com' },
-];
+import { InjectRepository } from '@nestjs/typeorm';
+import { Profile } from './entities/profile.entity';
+import { MongoRepository } from 'typeorm';
+import {
+  TCreateProfileResponse,
+  TDeleteResponse,
+  TFindAllResponse,
+  TFindOneResponse,
+  TUpdateResponse,
+} from './types/profile.types';
+import { ObjectId } from 'mongodb';
 
 @Injectable()
 export class ProfileService {
-  create(createProfileDto: CreateProfileDto) {
-    return 'This action adds a new profile';
-  }
+  constructor(@InjectRepository(Profile) private profileRepository: MongoRepository<Profile>) {}
 
-  findAll() {
-    return `This action returns all profile: \n
-    ${JSON.stringify(users, null, 2)}`;
-  }
+  async create(createProfileDto: CreateProfileDto): TCreateProfileResponse {
+    const existst = await this.profileRepository.findOne({
+      where: { email: createProfileDto.email },
+    });
 
-  findOne(id: number, details: string) {
-    const user = users.find((user) => user.id === id);
-
-    if (details === 'details') {
-      return user;
+    if (existst) {
+      throw new ConflictException('Email already exists');
     }
 
-    return user?.name;
+    const profile = this.profileRepository.create(createProfileDto);
+
+    const savedProfile = await this.profileRepository.save(profile);
+    const { password, ...profileWithoutPassword } = savedProfile;
+
+    return profileWithoutPassword;
   }
 
-  findOneWithDetails(id: number, mode: string) {
-    console.log('yooo, co se deje', id, mode);
+  async findAll(): TFindAllResponse {
+    const profiles = await this.profileRepository.find();
+    return profiles.map(({ comparePassword, hashPassword, password, ...restProfileProps }) => ({
+      ...restProfileProps,
+    }));
+  }
 
-    if (mode === 'details') {
-      return users.find((user) => user.id === id);
+  async findOne(id: string, include: boolean): TFindOneResponse {
+    const profile = await this.findProfileById(id);
+
+    if (!include)
+      return {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+      };
+
+    return profile;
+  }
+
+  async update(id: string, updateProfileDto: UpdateProfileDto): TUpdateResponse {
+    const profile = await this.findProfileById(id);
+
+    if (updateProfileDto.email && updateProfileDto.email !== profile.email) {
+      const existingProfile = await this.profileRepository.findOne({
+        where: { email: updateProfileDto.email },
+      });
+
+      if (existingProfile) {
+        throw new ConflictException('This email is already exists');
+      }
     }
+
+    const updatedProfile = {
+      ...profile,
+      ...updateProfileDto,
+    };
+
+    const savedProfile = await this.profileRepository.save(updatedProfile);
+
+    const { password, ...profileWithoutPassword } = savedProfile;
+
+    return profileWithoutPassword;
   }
 
-  update(id: number, updateProfileDto: UpdateProfileDto) {
-    return `This action updates a #${id} profile`;
+  async remove(id: string): TDeleteResponse {
+    await this.findProfileById(id);
+
+    const deletedProfile = await this.profileRepository.delete(id);
+
+    return deletedProfile;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} profile`;
+  private async findProfileById(id: string): Promise<Profile> {
+    if (!ObjectId.isValid(id)) {
+      throw new NotFoundException('ID is not valid');
+    }
+
+    const profile = await this.profileRepository.findOne({
+      where: { _id: new ObjectId(id) },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    return profile;
   }
 }
